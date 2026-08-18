@@ -1,0 +1,86 @@
+from pathlib import Path
+
+import ale_py
+import gymnasium as gym
+import numpy as np
+
+NUM_ROLLOUTS = 100
+
+ENV_NAME = "ALE/MsPacman-v5"
+FRAMESKIP_INTERVAL = 4          # Default for the environment is 4 only, kept this for configurations' sake
+NOOP_TIME = 65                  # Number of frames for which I've observed that the agent remains static despite being given control signals
+
+SAVE_PATH = Path("data")
+SAVE_PATH.mkdir(parents=True, exist_ok=True)
+
+
+def get_action(env: gym.Env):
+    return env.action_space.sample()
+
+def save_data(episode_id: int, obs: list[np.ndarray], acts: list[int], rewards: list[float], lives: list[int]):
+    if not obs:
+        raise ValueError("Cannot save an empty episode.")
+
+    obs_arr = np.stack(obs, axis=0)
+    acts_arr = np.asarray(acts, dtype=np.int64)
+    rewards_arr = np.asarray(rewards, dtype=np.float32)
+    lives_arr = np.asarray(lives, dtype=np.int32)
+
+    np.savez_compressed(
+        SAVE_PATH / f"{episode_id:05d}.npz",
+        observations=obs_arr,
+        actions=acts_arr,
+        rewards=rewards_arr,
+        lives=lives_arr,
+    )
+
+def generate_one_episode(idx, max_steps=1000):
+    obs_list = []
+    act_list = []
+    reward_list = []
+    lives_list = []
+    
+    env = gym.make(
+        ENV_NAME, max_steps + NOOP_TIME, 
+        frameskip=FRAMESKIP_INTERVAL, 
+        render_mode="rgb_array"
+    )
+    obs, _ = env.reset()
+    
+    # Waste the first few steps, because I don't want training data without any action to corrupt the agent's training
+    for _ in range(NOOP_TIME):
+        new_obs, _, terminated, truncated, _ = env.step(get_action(env))
+        obs = new_obs
+
+        if terminated or truncated:
+            return
+        
+    for _ in range(max_steps):
+        action = get_action(env)
+        new_obs, reward, terminated, truncated, info = env.step(action)
+        
+        obs_list.append(obs)
+        act_list.append(action)
+        reward_list.append(float(reward))
+        lives_list.append(info["lives"])
+        
+        obs = new_obs
+        
+        if (terminated or truncated): 
+            break
+
+    save_data(idx, obs_list, act_list, reward_list, lives_list)
+    env.close()
+    
+    return idx
+
+# Multiprocessing
+if __name__ == "__main__":
+    import multiprocessing as mp
+    N_WORKERS = 8
+
+    with mp.Pool(processes=N_WORKERS) as pool:
+        results = pool.map(generate_one_episode, range(NUM_ROLLOUTS))
+
+    print(f"Generated {len(results)} episodes.")
+    print(f"Files saved to {SAVE_PATH.resolve()}")
