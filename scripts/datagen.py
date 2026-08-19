@@ -46,29 +46,31 @@ def generate_one_episode(idx, max_steps=1000):
         frameskip=FRAMESKIP_INTERVAL, 
         render_mode="rgb_array"
     )
-    obs, _ = env.reset()
+    obs, info = env.reset()
     
     # Waste the first few steps, because I don't want training data without any action to corrupt the agent's training
     for _ in range(NOOP_TIME):
-        new_obs, _, terminated, truncated, _ = env.step(get_action(env))
+        new_obs, info, terminated, truncated, new_info = env.step(get_action(env))
         obs = new_obs
+        info = new_info
 
         if terminated or truncated:
             return
         
     for _ in range(max_steps):
         action = get_action(env)
-        new_obs, reward, terminated, truncated, info = env.step(action)
+        new_obs, reward, terminated, truncated, new_info = env.step(action)
         
         obs = obs[:186, :160, :]        # First crop to (174, 160) to only keep the game area in focus (not the score or the remaining lives)
         obs = cv2.resize(obs, [64, 64], interpolation=cv2.INTER_AREA)   # Then do downsampling / stretching to (64, 64)
         
-        obs_list.append(obs)
+        obs_list.append(obs / 255.0)
         act_list.append(action)
         reward_list.append(float(reward))
         lives_list.append(info["lives"])
         
         obs = new_obs
+        info = new_info
         
         if (terminated or truncated): 
             break
