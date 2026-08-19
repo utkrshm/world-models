@@ -1,14 +1,15 @@
 from pathlib import Path
 
 import ale_py
+import cv2
 import gymnasium as gym
 import numpy as np
 
-NUM_ROLLOUTS = 100
+NUM_ROLLOUTS = 1000
 
 ENV_NAME = "ALE/MsPacman-v5"
 FRAMESKIP_INTERVAL = 4          # Default for the environment is 4 only, kept this for configurations' sake
-NOOP_TIME = 65                  # Number of frames for which I've observed that the agent remains static despite being given control signals
+NOOP_TIME = 65                  # Number of frames for which I've observed that the agent remains static despite being given control signals (actual number is 66, I just want to keep one of these frames for smooth starting state)
 
 SAVE_PATH = Path("data")
 SAVE_PATH.mkdir(parents=True, exist_ok=True)
@@ -58,6 +59,9 @@ def generate_one_episode(idx, max_steps=1000):
     for _ in range(max_steps):
         action = get_action(env)
         new_obs, reward, terminated, truncated, info = env.step(action)
+        
+        obs = obs[:186, :160, :]        # First crop to (174, 160) to only keep the game area in focus (not the score or the remaining lives)
+        obs = cv2.resize(obs, [64, 64], interpolation=cv2.INTER_AREA)   # Then do downsampling / stretching to (64, 64)
         
         obs_list.append(obs)
         act_list.append(action)
