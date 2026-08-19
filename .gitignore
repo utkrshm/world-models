@@ -224,4 +224,5 @@ videos/*
 
 # Data and weights - Keep in mind to release weights as OS either on HF or on Git repo
 data/*
-checkpoints/*   
+checkpoints/*
+wandb

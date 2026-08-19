@@ -50,7 +50,7 @@ def generate_one_episode(idx, max_steps=1000):
     
     # Waste the first few steps, because I don't want training data without any action to corrupt the agent's training
     for _ in range(NOOP_TIME):
-        new_obs, info, terminated, truncated, new_info = env.step(get_action(env))
+        new_obs, reward, terminated, truncated, new_info = env.step(get_action(env))
         obs = new_obs
         info = new_info
 
