@@ -27,21 +27,34 @@ def log_reconstructions(originals, reconstructions, step: int, num_images: int =
     wandb.log({"reconstructions": images}, step=step)
 
 
-def save_checkpoint(model, optimizer, epoch: int, train_loss: float, test_loss: float, save_dir: str | Path):
+def save_checkpoint(
+    model,
+    optimizer,
+    save_dir: str | Path,
+    filename: str,
+    metadata: dict | None = None,
+    max_keep: int = 5,
+):
+    print(f"Saving a model checkpoint at {Path(save_dir) / filename} with the metadata {metadata}")
+
     save_dir = Path(save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
     
     checkpoint = {
-        "epoch": epoch,
         "model_state_dict": model.state_dict(),
         "optimizer_state_dict": optimizer.state_dict(),
-        "train_loss": train_loss,
-        "test_loss": test_loss,
     }
+    if metadata:
+        checkpoint.update(metadata)
     
-    path = save_dir / f"vae_epoch_{epoch:03d}.pt"
+    path = save_dir / filename
     torch.save(checkpoint, path)
     print(f"Checkpoint saved to {path}")
+
+    # Rotate: keep only the most recent max_keep checkpoints
+    existing = sorted(save_dir.glob("*.pt"))
+    for old in existing[:-max_keep]:
+        old.unlink()
     
     return path
 
@@ -53,4 +66,5 @@ def load_checkpoint(path: str | Path, model, optimizer=None):
     if optimizer is not None:
         optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
     
-    return checkpoint["epoch"]
+    # Return metadata (everything except model/optimizer state)
+    return {k: v for k, v in checkpoint.items() if k not in ("model_state_dict", "optimizer_state_dict")}

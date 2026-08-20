@@ -1,16 +1,21 @@
+import os
+
+import numpy as np
 import torch
 import torch.nn as nn
-import torch.optim as optim
 import torch.nn.functional as F
-
-import os
-import numpy as np
-from tqdm import tqdm
+import torch.optim as optim
 from torch.utils.data import DataLoader, random_split
+from tqdm import tqdm
 
 from models.vae import VAE
 from utils.data_utils import MsPacmanDataset
-from utils.logging_utils import init_wandb, log_metrics, log_reconstructions, save_checkpoint
+from utils.logging_utils import (
+    init_wandb,
+    log_metrics,
+    log_reconstructions,
+    save_checkpoint,
+)
 
 CHECKPOINT_DIR = "./checkpoints/vae/"
 
@@ -31,25 +36,41 @@ def vae_loss(x_recon, x, mu, logvar):
     return recon_loss + kld, recon_loss, kld
 
 
-def train(data_dir, run_name, epochs=1, batch_size=16, lr=1e-3):
+def train(data_dir, run_name, epochs=1, batch_size=16, lr=1e-3, log_every=1000):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
 
-    config = dict(epochs=epochs, batch_size=batch_size, lr=lr, device=str(device))
+    config = dict(epochs=epochs, batch_size=batch_size, lr=lr, device=str(device), log_every=log_every)
     
     init_wandb(config, "world-models-vae", run_name)
 
+    print("Getting data loaders...")
     train_dl, test_dl = get_loaders(data_dir, batch_size=batch_size)
 
+    print("Loading the model to device...")
     model = VAE().to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
+    step_ckpt_dir = os.path.join(CHECKPOINT_DIR, "steps")
+    epoch_ckpt_dir = os.path.join(CHECKPOINT_DIR, "epochs")
+
+    global_step = 0
+    running_loss = 0.0
+    running_recon = 0.0
+    running_kld = 0.0
+    running_count = 0
+
+    print("Starting training")
     for epoch in range(1, epochs + 1):
         model.train()
-        train_loss = 0.0
-        train_recon = 0.0
-        train_kld = 0.0
+        epoch_loss = 0.0
+        epoch_recon = 0.0
+        epoch_kld = 0.0
 
-        for batch in tqdm(train_dl, desc=f"Epoch {epoch}/{epochs}"):
+        print(f"Starting epoch {epoch}...")
+
+        steps_bar = tqdm(train_dl, desc=f"Epoch {epoch}/{epochs}")
+        for batch in steps_bar:
             batch = batch.to(device)
 
             recon, mu, logvar = model(batch)
@@ -59,38 +80,74 @@ def train(data_dir, run_name, epochs=1, batch_size=16, lr=1e-3):
             loss.backward()
             optimizer.step()
 
-            train_loss += loss.item()
-            train_recon += recon_loss.item()
-            train_kld += kld.item()
+            global_step += 1
+            running_loss += loss.item()
+            running_recon += recon_loss.item()
+            running_kld += kld.item()
+            running_count += batch.size(0)
+            epoch_loss += loss.item()
+            epoch_recon += recon_loss.item()
+            epoch_kld += kld.item()
 
+            steps_bar.write(f"Finished training step {global_step}")
+            if global_step % log_every == 0:
+                avg_loss = running_loss / running_count
+                avg_recon = running_recon / running_count
+                avg_kld = running_kld / running_count
+
+                test_metrics = evaluate(model, test_dl, device)
+
+                log_metrics({
+                    "train/loss": avg_loss,
+                    "train/recon_loss": avg_recon,
+                    "train/kld": avg_kld,
+                    "test/loss": test_metrics["loss"],
+                    "test/recon_loss": test_metrics["recon_loss"],
+                    "test/kld": test_metrics["kld"],
+                    "epoch": epoch,
+                    "global_step": global_step,
+                }, step=global_step)
+
+                log_reconstructions(
+                    test_metrics["sample_originals"], 
+                    test_metrics["sample_reconstructions"], 
+                    step=global_step,
+                )
+
+                # Step-wise checkpointing
+                save_checkpoint(
+                    model.cpu(), optimizer,				# Really important here to change the model to cpu, otherwise it'll choke
+                    save_dir=step_ckpt_dir,
+                    filename=f"vae_step_{global_step:06d}.pt",
+                    metadata={"global_step": global_step, "epoch": epoch,
+                              "train_loss": avg_loss, "test_loss": test_metrics["loss"]},
+                )
+
+                steps_bar.write(f"Step {global_step} (epoch {epoch}) — train: {avg_loss:.4f}  test: {test_metrics['loss']:.4f}")
+
+                running_loss = 0.0
+                running_recon = 0.0
+                running_kld = 0.0
+                running_count = 0
+
+                model.train()
+
+        # Epoch-wise checkpointing
         n_train = len(train_dl.dataset)
-        avg_train_loss = train_loss / n_train
-        avg_train_recon = train_recon / n_train
-        avg_train_kld = train_kld / n_train
+        avg_epoch_loss = epoch_loss / n_train
+        avg_epoch_recon = epoch_recon / n_train
+        avg_epoch_kld = epoch_kld / n_train
 
-        test_metrics = evaluate(model, test_dl, device)
-
-        # Logging
-        log_metrics({
-            "train/loss": avg_train_loss,
-            "train/recon_loss": avg_train_recon,
-            "train/kld": avg_train_kld,
-            "test/loss": test_metrics["loss"],
-            "test/recon_loss": test_metrics["recon_loss"],
-            "test/kld": test_metrics["kld"],
-            "epoch": epoch,
-        }, step=epoch)
-
-        log_reconstructions(
-            test_metrics["sample_originals"], 
-            test_metrics["sample_reconstructions"], 
-            step=epoch,
+        save_checkpoint(
+            model, optimizer,
+            save_dir=epoch_ckpt_dir,
+            filename=f"vae_epoch_{epoch:03d}.pt",
+            metadata={"epoch": epoch, "global_step": global_step,
+                      "train_loss": avg_epoch_loss},
         )
 
-        # Checkpointing
-        save_checkpoint(model, optimizer, epoch, avg_train_loss, test_metrics["loss"], CHECKPOINT_DIR)
-
-        print(f"Epoch {epoch} — train: {avg_train_loss:.4f}  test: {test_metrics['loss']:.4f}")
+        print(f"Epoch {epoch} complete (step {global_step}) — "
+              f"train_loss: {avg_epoch_loss:.4f}  recon: {avg_epoch_recon:.4f}  kld: {avg_epoch_kld:.4f}")
 
 
 @torch.no_grad()
@@ -133,4 +190,6 @@ def evaluate(model, test_dl, device):
 if __name__ == "__main__":
     DATA_DIR = "./data/"
     
-    train(DATA_DIR, run_name="vae-train-001")
+    run_name = input("Enter run name (Optional): ")
+    
+    train(DATA_DIR, run_name=run_name, batch_size=64, log_every=10)
