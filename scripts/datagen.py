@@ -27,13 +27,10 @@ def save_data(episode_id: int, obs: list[np.ndarray], acts: list[int], rewards: 
     rewards_arr = np.asarray(rewards, dtype=np.float32)
     lives_arr = np.asarray(lives, dtype=np.int32)
 
-    np.savez_compressed(
-        SAVE_PATH / f"{episode_id:05d}.npz",
-        observations=obs_arr,
-        actions=acts_arr,
-        rewards=rewards_arr,
-        lives=lives_arr,
-    )
+    np.save(SAVE_PATH / f"{episode_id:05d}_observations.npy", obs_arr)
+    np.save(SAVE_PATH / f"{episode_id:05d}_actions.npy", acts_arr)
+    np.save(SAVE_PATH / f"{episode_id:05d}_rewards.npy", rewards_arr)
+    np.save(SAVE_PATH / f"{episode_id:05d}_lives.npy", lives_arr)
 
 def generate_one_episode(idx, max_steps=1000):
     obs_list = []

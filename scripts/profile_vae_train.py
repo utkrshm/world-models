@@ -14,7 +14,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using device: {device}")
 
 start_time = time()
-train_dl, test_dl = get_loaders("./data/old", num_workers=8)
+train_dl, test_dl = get_loaders("./data", num_workers=8)
 print(f"Time taken to get the loaders: {time()-start_time}")
 
 start_time = time()
@@ -22,8 +22,8 @@ model = VAE().to(device)
 optimizer = optim.Adam(model.parameters(), lr=1e-3)
 print(f"Time taken to initialize model and optimizer: {time()-start_time}")
 
-table_path = Path("./trace_dir/vae_trace001.txt")
-trace_path = Path("./trace_dir/vae_trace001.json")
+table_path = Path("./trace_dir/vae_trace002.txt")
+trace_path = Path("./trace_dir/vae_trace002.json")
 profile_steps = 35
 
 with profile(
@@ -44,8 +44,8 @@ with profile(
         
     torch.cuda.synchronize()
 
-    print(f"saving traces... {trace_path}")
-    prof.export_chrome_trace(str(trace_path))
+    # print(f"saving traces... {trace_path}")
+    # prof.export_chrome_trace(str(trace_path))
     print(f"saving profiler table ... {table_path}")
 
     with open(table_path, "w") as f:

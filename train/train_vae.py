@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader, random_split
 from tqdm import tqdm
 
 from models.vae import VAE
-from utils.data_utils import MsPacmanDataset
+from utils.data_utils import VAEDataset
 from utils.logging_utils import (
     init_wandb,
     log_metrics,
@@ -20,8 +20,8 @@ from utils.logging_utils import (
 CHECKPOINT_DIR = "./checkpoints/vae/"
 WANDB_PROJECT_NAME = "world-models-vae"
 
-def get_loaders(data_dir, batch_size=16, num_workers=0, shuffle=True, test_pct=0.2):
-    ds = MsPacmanDataset(data_dir)
+def get_loaders(data_dir, batch_size=16, num_workers=2, shuffle=True, test_pct=0.2):
+    ds = VAEDataset(data_dir)
 
     train_ds, test_ds = random_split(ds, (1-test_pct, test_pct))
     

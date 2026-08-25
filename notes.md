@@ -22,6 +22,6 @@
 ## Areas to further explore / Future reading after this paper
 - *Replay Comes Of Age (Foster, 2017)*
 - Bayesian Neural Networks
-- Mixture Density Models (covered a little for this implementation as well, but still, it's a fascinating concept)
+[x] Mixture Density Models (covered a little for this implementation as well, but still, it's a fascinating concept)
 - Gaussian Proceses to learn system dynamics
 - PILCO
