@@ -5,6 +5,7 @@ from typing import Any
 import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
+import torch.nn.functional as F
 
 class VAEDataset(Dataset):
     def __init__(self, root_dir: Path | str):
@@ -27,6 +28,7 @@ class VAEDataset(Dataset):
     def __getitem__(self, index) -> Any:
         file_idx, frame_idx = self.index_map[index]
         data = np.load(self.root_dir / self.files[file_idx], mmap_mode="r")
+        data = data[frame_idx] / 255.0
         
         # The observations are already normalized to be in the 0-1 range, so only the shape change has to happen now
-        return torch.tensor(data[frame_idx], dtype=torch.float32).permute(2, 0, 1)   # For now, for the VAE, only the observations are needed
+        return torch.tensor(data, dtype=torch.float32).permute(2, 0, 1)   # For now, for the VAE, only the observations are needed
