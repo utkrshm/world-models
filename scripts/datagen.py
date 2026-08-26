@@ -58,7 +58,7 @@ def generate_one_episode(idx, max_steps=1000):
         action = get_action(env)
         new_obs, reward, terminated, truncated, new_info = env.step(action)
         
-        obs = obs[:186, :160, :]        # First crop to (174, 160) to only keep the game area in focus (not the score or the remaining lives)
+        obs = obs[:186, :160, :]        # First crop to (186, 160) to only keep the game area in focus (not the score or the remaining lives)
         obs = cv2.resize(obs, [64, 64], interpolation=cv2.INTER_AREA)   # Then do downsampling / stretching to (64, 64)
         
         obs_list.append(obs / 255.0)

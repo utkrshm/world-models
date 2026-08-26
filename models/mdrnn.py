@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class Memory(nn.Module):
-    def __init__(self, latents_dim = 64, hiddens_dim = 512, actions_dim = 10, n_mixtures = 5):
+    def __init__(self, latents_dim = 64, hiddens_dim = 512, actions_dim = 9, n_mixtures = 5):
         super().__init__()
         
         self.z_size = latents_dim
@@ -53,7 +53,7 @@ class Memory(nn.Module):
         weights, mus, logsigmas = self.split_params(x)
 
         sigmas = torch.exp(logsigmas).clamp(min=1e-5)       # Rare case, but might need the clamping
-        weights = F.softmax(weights)
+        weights = F.softmax(weights, dim=-1)
                 
         return weights, mus, sigmas, hiddens
     
@@ -62,7 +62,7 @@ if __name__ == "__main__":
     from torchinfo import summary
     
     latents_dim = 64            # From the VAE model
-    actions_dim = 10            # For MsPacman specifically
+    actions_dim = 9             # For MsPacman specifically
     hiddens_dim = 512           # From the paper
     n_mixtures = 5              # From the paper
     seq_len = 20                # Random

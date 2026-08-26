@@ -10,8 +10,8 @@ def seed(rng_seed, torch_seed: int | None, numpy_seed: int | None):
     Only specify torch_seed and numpy_seed if you want to use separate seeds for them. 
     `rng_seed` will apply to all whose value has not been specified.
     """
-    if not torch_seed: torch_seed = rng_seed
-    if not numpy_seed: numpy_seed = rng_seed
+    if torch_seed is None: torch_seed = rng_seed
+    if numpy_seed is None: numpy_seed = rng_seed
     
     
     random.seed(rng_seed)
