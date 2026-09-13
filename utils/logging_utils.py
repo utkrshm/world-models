@@ -27,6 +27,42 @@ def log_reconstructions(originals, reconstructions, step: int, num_images: int =
     wandb.log({"reconstructions": images}, step=step)
 
 
+def log_predictions(orig, pred, gt, act, step: int, num_images: int = 8):
+    import matplotlib.pyplot as plt
+
+    n = min(num_images, orig.size(0), pred.size(0), gt.size(0))
+    images = []
+
+    for i in range(n):
+        action = act[i]
+        if torch.is_tensor(action):
+            action = action.argmax().item() if action.ndim else action.item()
+
+        figure, axes = plt.subplots(1, 3, figsize=(12, 4))
+        observations = (
+            orig[i],
+            pred[i],
+            gt[i],
+        )
+        titles = (
+            "Timestamp t",
+            f"Prediction t+1 (action {action})",
+            f"Ground truth t+1 (action {action})",
+        )
+
+        for axis, observation, title in zip(axes, observations, titles):
+            image = observation.clamp(0, 1).permute(1, 2, 0).detach().cpu().numpy()
+            axis.imshow(image)
+            axis.set_title(title)
+            axis.axis("off")
+
+        figure.tight_layout()
+        images.append(wandb.Image(figure, caption=f"prediction_{i}"))
+        plt.close(figure)
+
+    wandb.log({"predictions": images}, step=step)
+
+
 def save_checkpoint(
     model,
     optimizer,
