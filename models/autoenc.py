@@ -1,0 +1,57 @@
+import torch
+from torch import nn
+
+"""Encoder-Decoder architecture to see if the weights are capable of perfecting replicating the mazeations."""
+class AutoEncoder(nn.Module):
+    def __init__(self, hidden_size: int = 64):
+        super().__init__()
+        
+        self.z_size = hidden_size
+        
+        self.enc_layers = nn.Sequential(
+            nn.Conv2d(in_channels=3 , out_channels=32, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=4, stride=2, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(in_channels=64, out_channels=128, kernel_size=4, stride=2, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(in_channels=128, out_channels=256, kernel_size=4, stride=2, padding=1),
+            nn.ReLU(),
+        )
+        
+        self.enc_projection = nn.Linear(in_features=8 * 8 * 256, out_features=self.z_size)
+        
+        self.proj_dec_layer = nn.Sequential(
+            nn.Linear(self.z_size, 256*8*8),
+            nn.ReLU()
+        )
+        self.dec_layers = nn.Sequential(
+            nn.ConvTranspose2d(in_channels=256, out_channels=128, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.ConvTranspose2d(in_channels=128, out_channels=64, kernel_size=4, stride=2, padding=1),
+            nn.ReLU(),
+            nn.ConvTranspose2d(in_channels=64, out_channels=32, kernel_size=4, stride=2, padding=1),
+            nn.ReLU(),
+            nn.ConvTranspose2d(in_channels=32, out_channels=3, kernel_size=4, stride=2, padding=1),
+            nn.Sigmoid(),
+        )
+        
+    def encode(self, x):
+        x = self.enc_layers(x)
+        x = torch.flatten(x, start_dim=1)
+        return self.enc_projection(x)
+    
+    def decode(self, z):
+        x = self.proj_dec_layer(z)
+        x = x.reshape(-1, 256, 8, 8)
+        return self.dec_layers(x)        
+
+    def forward(self, x):
+        return self.decode(self.encode(x))
+
+
+if __name__ == "__main__":
+    from torchinfo import summary
+    
+    model = AutoEncoder()
+    summary(model, input_size=(10, 3, 64, 64), col_names=("input_size", "output_size", "num_params"), col_width=20)
