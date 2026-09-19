@@ -17,10 +17,8 @@ class VAEDataset(Dataset):
         self.index_map = []
         # Each file contains multiple observations of a single episode, so we'll index them all
         for file_idx, file in enumerate(self.files):
-            data = np.load(self.root_dir / file)
-            
-            for frame_idx in range(len(data)):
-                self.index_map.append((file_idx, frame_idx))
+            frame_count = np.load(self.root_dir / file, mmap_mode="r").shape[0]
+            self.index_map.extend((file_idx, frame_idx) for frame_idx in range(frame_count))
                 
     def __len__(self):
         return len(self.index_map)
@@ -28,7 +26,7 @@ class VAEDataset(Dataset):
     def __getitem__(self, index) -> Any:
         file_idx, frame_idx = self.index_map[index]
         data = np.load(self.root_dir / self.files[file_idx], mmap_mode="r")
-        data = data[frame_idx] / 255.0
+        data = data[frame_idx]
         
         # The observations are already normalized to be in the 0-1 range, so only the shape change has to happen now
         return torch.tensor(data, dtype=torch.float32).permute(2, 0, 1)   # For now, for the VAE, only the observations are needed

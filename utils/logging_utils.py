@@ -13,17 +13,29 @@ def log_metrics(metrics: dict, step: int):
 
 
 def log_reconstructions(originals, reconstructions, step: int, num_images: int = 8):
+    import matplotlib.pyplot as plt
+    
     n = min(num_images, originals.size(0))
     
     images = []
     for i in range(n):
-        # Tensors are (C, H, W), clamp to valid range before logging
-        orig = originals[i].clamp(0, 1).permute(1, 2, 0).cpu().numpy()
-        recon = reconstructions[i].clamp(0, 1).permute(1, 2, 0).cpu().numpy()
+        original = originals[i].clamp(0, 1).permute(1, 2, 0).detach().float().cpu().numpy()
+        reconstruction = reconstructions[i].clamp(0, 1).permute(1, 2, 0).detach().float().cpu().numpy()
+
+        figure, axes = plt.subplots(1, 2, figsize=(12, 4))
+        axes[0].imshow(original)
+        axes[0].set_title("Original")
         
-        images.append(wandb.Image(orig, caption=f"orig_{i}"))
-        images.append(wandb.Image(recon, caption=f"recon_{i}"))
-    
+        axes[1].imshow(reconstruction)
+        axes[1].set_title("Reconstruction")
+
+        for ax in axes: ax.axis("off")
+        figure.tight_layout()
+
+        images.append(wandb.Image(figure, caption=f"reconstruction_{i}"))
+        
+        plt.close(figure)
+
     wandb.log({"reconstructions": images}, step=step)
 
 
