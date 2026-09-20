@@ -56,7 +56,7 @@ def load_vae_frozen(weights_path, device):
     assert weights_path.exists() and weights_path.is_file(), "The provided path to the VAE's weights file does not exist"
     assert weights_path.suffix == ".pt", "VAE weights file is not a .pt file, please ensure that you load correct weights"
 
-    vae = VAE().to(device=device)
+    vae = VAE(128).to(device=device)
     checkpoint = torch.load(weights_path, weights_only=True)
     vae.load_state_dict(checkpoint["model_state_dict"])
     
@@ -143,7 +143,7 @@ def train(data_dir, vae_weights_path, run_name, epochs=1, batch_size=16, num_wor
 
     print("Loading the model to device...")
     vae = load_vae_frozen(vae_weights_path, device)
-    model = Memory().to(device)
+    model = Memory(latents_dim=128).to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr)
     use_amp = device.type == "cuda"
     scaler = torch.GradScaler("cuda", enabled=use_amp)
@@ -334,7 +334,7 @@ def evaluate(model, vae, test_dl, device, max_batches=None):
 
 if __name__ == "__main__":
     DATA_DIR = "./data/"
-    vae_weights_path = "/home/utkarsh/active_projects/world-models/checkpoints/vae/epochs/vae_epoch_001.pt"
+    vae_weights_path = "/home/utkarsh/active_projects/world-models/checkpoints/vae/epochs/vae_epoch_010.pt"
     run_name = input("Enter run name (Optional): ").strip() or None
     
-    train(DATA_DIR, vae_weights_path, run_name=run_name, epochs=5, batch_size=8, log_every=10, num_eval_batches=50)
+    train(DATA_DIR, vae_weights_path, run_name=run_name, epochs=30, batch_size=2, log_every=100)

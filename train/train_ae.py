@@ -187,4 +187,4 @@ if __name__ == "__main__":
     
     run_name = input("Enter run name (Optional): ")
     
-    train(DATA_DIR, run_name=run_name, batch_size=128, log_every=100, num_eval_batches=50)
+    train(DATA_DIR, run_name=run_name, batch_size=128, epochs=10, log_every=400, num_eval_batches=25)
