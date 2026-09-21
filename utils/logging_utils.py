@@ -37,6 +37,7 @@ def log_reconstructions(originals, reconstructions, step: int, num_images: int =
         plt.close(figure)
 
     wandb.log({"reconstructions": images}, step=step)
+    plt.close("all")
 
 
 def log_predictions(orig, pred, gt, act, step: int, num_images: int = 8):
@@ -73,6 +74,7 @@ def log_predictions(orig, pred, gt, act, step: int, num_images: int = 8):
         plt.close(figure)
 
     wandb.log({"predictions": images}, step=step)
+    plt.close("all")
 
 
 def save_checkpoint(
