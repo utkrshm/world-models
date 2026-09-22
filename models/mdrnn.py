@@ -3,13 +3,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class Memory(nn.Module):
-    def __init__(self, latents_dim = 64, hiddens_dim = 512, actions_dim = 9, n_mixtures = 5):
+    def __init__(self, latents_dim = 64, hiddens_dim = 512, actions_dim = 9, max_lives = 3, n_mixtures = 5):
         super().__init__()
         
         self.z_size = latents_dim
         self.h_size = hiddens_dim
         self.a_size = actions_dim
         self.n_mixtures = n_mixtures
+        self.n_lives = max_lives + 1
         
         self.lstm = nn.LSTM(
             input_size=(self.z_size + self.a_size), hidden_size=self.h_size, num_layers=1, batch_first=True
@@ -17,6 +18,7 @@ class Memory(nn.Module):
         
         self.fc = nn.Linear(self.h_size, self.n_mixtures*(2*self.z_size+1))
         # Output: For every gaussian mixture, the means of each dimension of the latent, the variances for every dimension and the weight for a particular mixture
+        self.lives_head = nn.Linear(self.h_size, self.n_lives)
     
     def init_hidden(self, batch_size):
         device = next(self.parameters()).device         # Needed because this creates the tensors in memory, but the tensors don't know which device the model is on... got an error without running this when getting the summary
@@ -48,6 +50,7 @@ class Memory(nn.Module):
             hiddens = self.init_hidden(x.shape[0])
         
         x, hiddens = self.lstm(x, hiddens)
+        lives_logits = self.lives_head(x)
         x = self.fc(x)
         
         weights, mus, logsigmas = self.split_params(x)
@@ -55,7 +58,7 @@ class Memory(nn.Module):
         sigmas = torch.exp(logsigmas).clamp(min=1e-5)       # Rare case, but might need the clamping
         weights = F.softmax(weights, dim=-1)
                 
-        return weights, mus, sigmas, hiddens
+        return weights, mus, sigmas, lives_logits, hiddens
     
 
 if __name__ == "__main__":
@@ -64,11 +67,12 @@ if __name__ == "__main__":
     latents_dim = 64            # From the VAE model
     actions_dim = 9             # For MsPacman specifically
     hiddens_dim = 512           # From the paper
+    max_lives = 3               # Ms. Pacman lives are encoded as 0-3 classes
     n_mixtures = 5              # From the paper
     seq_len = 20                # Random
     batch_size = 32             # Dummy for now
     
-    model = Memory(latents_dim, hiddens_dim, actions_dim, n_mixtures).to(device="cpu")
+    model = Memory(latents_dim, hiddens_dim, actions_dim, max_lives, n_mixtures).to(device="cpu")
     summary(
         model, 
         input_size=[
