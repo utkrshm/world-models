@@ -18,6 +18,7 @@ class Memory(nn.Module):
         
         self.fc = nn.Linear(self.h_size, self.n_mixtures*(2*self.z_size+1))
         # Output: For every gaussian mixture, the means of each dimension of the latent, the variances for every dimension and the weight for a particular mixture
+        self.reward_head = nn.Linear(self.h_size, 1)
         self.lives_head = nn.Linear(self.h_size, self.n_lives)
     
     def init_hidden(self, batch_size):
@@ -50,6 +51,7 @@ class Memory(nn.Module):
             hiddens = self.init_hidden(x.shape[0])
         
         x, hiddens = self.lstm(x, hiddens)
+        reward_predictions = self.reward_head(x).squeeze(-1)
         lives_logits = self.lives_head(x)
         x = self.fc(x)
         
@@ -58,7 +60,7 @@ class Memory(nn.Module):
         sigmas = torch.exp(logsigmas).clamp(min=1e-5)       # Rare case, but might need the clamping
         weights = F.softmax(weights, dim=-1)
                 
-        return weights, mus, sigmas, lives_logits, hiddens
+        return weights, mus, sigmas, reward_predictions, lives_logits, hiddens
     
 
 if __name__ == "__main__":
